@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Square and Circle with Points</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@4.9.0/dist/echarts.min.js"></script>
+    <style>
+        .main {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        #chart {
+            width: 600px;
+            height: 600px;
+        }
+        #makedot {
+            margin: 10px;
+            padding: 20px;
+            border-radius: 10px;
+            background-color: aquamarine;
+        }
+        /* #title{
+            position: absolute;
+            top  :8%;
+            left :20%;
+            
+        } */
+        #paper {
+            width: 60%;
+            margin: 0 auto;
+            padding: 2em;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        #title {
+            font-size: 2.5em;
+            text-align: center;
+            margin-bottom: 0.0em;
+        }
+
+        #name {
+            text-align: center;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+            font-style: italic
+        }
+
+        h4 {
+            font-size: 1.2em;
+            text-align: justify;
+            margin-top: 0;
+            padding: 0em;
+        }
+        #keyword{
+            font-size: 1.5em;
+            font-style: italic;
+        }
+        #abstract{
+            font-size: 2em;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="paper"><h1 id="title">Using Monte Carlo Method to estimate Pi value</h1>
+    <h3  id="name">Pin-jia (Paul) Lu, Ruei-Shan Lu </h3>
+    <h3 id="abstract">Abstract</h3>
+    <h4>Utilizing the computational power of modern computers to approximate the value of π has long been an interesting scientific research topic. This study employs the Monte Carlo method in conjunction with a random number generator to indirectly obtain an approximation of π. The approach and spirit of this process are similar to the famous Chinese folktale "Cao Chong Weighing the Elephant." Our findings indicate that with a sufficient number of random points, such as 10 million, the approximation of π can be accurate to the fifth decimal place. To accelerate the computation, this study also employs the Worker technology in Web APIs to achieve parallel processing.</h4>
+    <h4 id="keyword">Keywords: Monte Carlo Method; pi(𝜋); Random number generator; Worker API ; parallel processing</h4></div>
+    <div class="main">
+        <div id="chart"></div>
+        <button id="makedot">隨機散佈100個點</button>
+    </div>
+    <script>
+        var chartDom = document.getElementById('chart');
+        var myChart = echarts.init(chartDom);
+        var option;
+
+        const workers = [
+            new Worker('worker.js'),
+            new Worker('worker.js'),
+            new Worker('worker.js'),
+            new Worker('worker.js'),
+            new Worker('worker.js'),
+            new Worker('worker.js')
+        ];
+
+        let points = [];
+        let totalRed = 0;
+        let totalBlack = 0;
+        let completedWorkers = 0;
+        let dotNumber;
+
+        function handleWorkerMessage(e) {
+            const data = e.data;
+            points = points.concat(data.coordinate);
+            totalRed += data.red;
+            totalBlack += data.black;
+            completedWorkers++;
+
+            if (completedWorkers === workers.length) {
+                const pi = (4 * totalRed) / dotNumber;
+                console.log(`Red points: ${totalRed}`);
+                console.log(`Black points: ${totalBlack}`);
+                console.log(`𝜋=${pi}`);
+                paint(points, pi);
+            }
+        }
+
+        document.getElementById('makedot').addEventListener('click', () => {
+            dotNumber = parseInt(prompt('Enter the number of dots'));
+            const dotsPerWorker = dotNumber / workers.length;
+
+            points = [];
+            totalRed = 0;
+            totalBlack = 0;
+            completedWorkers = 0;
+
+            workers.forEach(worker => {
+                worker.onmessage = handleWorkerMessage;
+                worker.postMessage({ numPoints: dotsPerWorker });
+            });
+        });
+
+        function paint(points, pi) {
+            option = {
+                // title: {
+                //     text:'Using Monte Carlo Method to estimate Pi value',
+                //     left: 'center'
+
+                // },
+                title:{
+                    text: '𝜋=' + pi ,
+                    left: 'center',
+                    top:'bottom'
+                },
+                xAxis: {
+                    type: 'value',
+                    min: -1,
+                    max: 1,
+                    axisLine: {
+                        onZero: true
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    min: -1,
+                    max: 1,
+                    axisLine: {
+                        onZero: true
+                    }
+                },
+                series: [
+                    {
+                        type: 'scatter',
+                        data: points,
+                        symbolSize: 4
+                    },
+                    {
+                        type: 'custom',
+                        renderItem: function (params, api) {
+                            const x = api.value(0);
+                            const y = api.value(1);
+                            return {
+                                type: 'circle',
+                                shape: {
+                                    cx: api.coord([0, 0])[0],
+                                    cy: api.coord([0, 0])[1],
+                                    r: api.size([2,2])[0] / 2
+                                },
+                                style: {
+                                    fill: 'none',
+                                    stroke: 'blue',
+                                    lineWidth: 2
+                                }
+                            };
+                        },
+                        data: [[0, 0]]
+                    },
+                    {
+                        type: 'custom',
+                        renderItem: function (params, api) {
+                            const x = api.value(0);
+                            const y = api.value(1);
+                            const size = api.size([2, 2]);
+                            return {
+                                type: 'rect',
+                                shape: {
+                                    x: api.coord([-1, -1])[0],
+                                    y: api.coord([-1, -1])[1],
+                                    width: size[0],
+                                    height: size[1]
+                                },
+                                style: {
+                                    fill: 'none',
+                                    stroke: 'green',
+                                    lineWidth: 0
+                                }
+                            };
+                        },
+                        data: [[0, 0]]
+                    }
+                ]
+            };
+
+            myChart.setOption(option);
+        }
+    </script>
+</body>
+</html>
